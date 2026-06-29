@@ -56,6 +56,7 @@ const formEditar = ref({
   semestres: 1,
   carrera: '',
   grupo: '',
+  status: 'activo' as 'activo' | 'inactivo',
 })
 
 const nuevoTutorId = ref(0)
@@ -207,6 +208,7 @@ function abrirEditar(estudiante: Estudiante) {
     semestres: estudiante.semestres,
     carrera: estudiante.carrera,
     grupo: estudiante.grupo,
+    status: estudiante.status,
   }
   formError.value = null
   showEditModal.value = true
@@ -311,14 +313,20 @@ async function guardarEdicion() {
   submitting.value = true
 
   try {
+    const payload = {
+      ...formEditar.value,
+      semestres: Number(formEditar.value.semestres),
+      apellido_materno: formEditar.value.apellido_materno || undefined,
+    }
+
+    if (!esAdmin.value) {
+      delete (payload as { status?: string }).status
+    }
+
     const { student } = await estudiantesService.updateEstudiante(
       auth.token,
       selectedStudent.value.id,
-      {
-        ...formEditar.value,
-        semestres: Number(formEditar.value.semestres),
-        apellido_materno: formEditar.value.apellido_materno || undefined,
-      },
+      payload,
     )
 
     estudiantes.value = estudiantes.value
@@ -332,6 +340,31 @@ async function guardarEdicion() {
     formError.value = err instanceof Error ? err.message : 'Error al actualizar alumno'
   } finally {
     submitting.value = false
+  }
+}
+
+async function cambiarEstatus(estudiante: Estudiante) {
+  if (!auth.token || !esAdmin.value || !puedeActualizar.value) return
+
+  const nuevoStatus = estudiante.status === 'activo' ? 'inactivo' : 'activo'
+  const accion = nuevoStatus === 'inactivo' ? 'dar de baja' : 'reactivar'
+  if (!confirm(`¿Deseas ${accion} al alumno ${nombreCompleto(estudiante)} (${estudiante.matricula})?`)) return
+
+  try {
+    const { student } = await estudiantesService.updateEstudiante(auth.token, estudiante.id, {
+      status: nuevoStatus,
+    })
+
+    estudiantes.value = estudiantes.value
+      .map((e) => (e.id === student.id ? student : e))
+      .sort((a, b) => nombreCompleto(a).localeCompare(nombreCompleto(b)))
+
+    success.value = nuevoStatus === 'inactivo'
+      ? 'Alumno dado de baja correctamente'
+      : 'Alumno reactivado correctamente'
+    setTimeout(() => { success.value = null }, 3000)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Error al cambiar el estado del alumno'
   }
 }
 
@@ -411,6 +444,7 @@ async function guardarObservacion() {
 
 const puedeAgregarObservacion = computed(() => {
   if (!puedeObservar.value || !selectedStudent.value) return false
+  if (selectedStudent.value.status !== 'activo') return false
   if (esAdmin.value) return true
   return selectedStudent.value.tutor_actual?.id === auth.user?.id
 })
@@ -458,20 +492,28 @@ onMounted(cargarDatos)
             <th>Grupo</th>
             <th>Sem.</th>
             <th>Tutor actual</th>
+            <th v-if="esAdmin">Estado</th>
             <th class="col-actions">Acciones</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="estudiantes.length === 0">
-            <td colspan="7" class="empty">No hay alumnos registrados</td>
+            <td :colspan="esAdmin ? 8 : 7" class="empty">No hay alumnos registrados</td>
           </tr>
-          <tr v-for="estudiante in estudiantes" :key="estudiante.id">
+          <tr
+            v-for="estudiante in estudiantes"
+            :key="estudiante.id"
+            :class="{ 'row-inactivo': estudiante.status === 'inactivo' }"
+          >
             <td class="mono">{{ estudiante.matricula }}</td>
             <td class="name">{{ nombreCompleto(estudiante) }}</td>
             <td>{{ estudiante.carrera }}</td>
             <td>{{ estudiante.grupo }}</td>
             <td>{{ estudiante.semestres }}</td>
             <td>{{ nombreTutor(estudiante.tutor_actual) }}</td>
+            <td v-if="esAdmin">
+              <span :class="['status-badge', estudiante.status]">{{ estudiante.status }}</span>
+            </td>
             <td class="col-actions actions-cell">
               <button type="button" class="btn-link" @click="abrirDetalle(estudiante)">
                 Ver
@@ -491,6 +533,14 @@ onMounted(cargarDatos)
                 @click="abrirCambiarTutor(estudiante)"
               >
                 Cambiar tutor
+              </button>
+              <button
+                v-if="esAdmin && puedeActualizar"
+                type="button"
+                class="btn-link"
+                @click="cambiarEstatus(estudiante)"
+              >
+                {{ estudiante.status === 'activo' ? 'Dar de baja' : 'Reactivar' }}
               </button>
               <button
                 v-if="puedeEliminar"
@@ -733,6 +783,14 @@ onMounted(cargarDatos)
               <label for="edit-grupo">Grupo *</label>
               <input id="edit-grupo" v-model="formEditar.grupo" type="text" required />
             </div>
+          </div>
+
+          <div v-if="esAdmin" class="field">
+            <label for="edit-status">Estado</label>
+            <select id="edit-status" v-model="formEditar.status">
+              <option value="activo">Activo</option>
+              <option value="inactivo">Inactivo</option>
+            </select>
           </div>
 
           <p v-if="formError" class="alert error">{{ formError }}</p>
@@ -993,13 +1051,35 @@ h1 {
   font-weight: 500;
 }
 
+.row-inactivo {
+  opacity: 0.65;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+
+.status-badge.activo {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.inactivo {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
 .mono {
   font-family: ui-monospace, monospace;
   font-size: 0.85rem;
 }
 
 .col-actions {
-  min-width: 180px;
+  min-width: 220px;
 }
 
 .actions-cell {

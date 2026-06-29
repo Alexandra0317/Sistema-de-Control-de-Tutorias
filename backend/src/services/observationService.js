@@ -33,7 +33,13 @@ async function listObservations(studentId, userId) {
 
 async function createObservation(studentId, data, userId) {
     const user = await studentService.getRequestingUser(userId);
-    await studentService.assertAccessToStudent(studentId, user);
+    const student = await studentService.assertAccessToStudent(studentId, user);
+
+    if (student.status !== 'activo') {
+        const error = new Error('No se pueden registrar observaciones para un alumno inactivo');
+        error.status = 400;
+        throw error;
+    }
 
     const { contenido, fecha } = data;
 

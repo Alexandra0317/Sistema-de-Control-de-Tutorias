@@ -5,7 +5,7 @@ const runSeeders = require('./seeders');
 async function bootstrap() {
     await ensureDatabase();
     await sequelize.authenticate();
-    await sequelize.sync();
+    await sequelize.sync({ alter: true });
 
     const { roles, admin } = await runSeeders();
 

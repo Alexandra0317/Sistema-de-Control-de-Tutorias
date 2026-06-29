@@ -62,6 +62,18 @@ async function getUserById(id) {
         throw error;
     }
 
+    if (user.status !== 'activo') {
+        const error = new Error('Usuario inactivo');
+        error.status = 403;
+        throw error;
+    }
+
+    if (!user.rol || user.rol.status !== 'activo') {
+        const error = new Error('Rol inactivo o no asignado');
+        error.status = 403;
+        throw error;
+    }
+
     return formatUserResponse(user);
 }
 

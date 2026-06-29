@@ -75,6 +75,12 @@ async function assertAccessToStudent(studentId, user) {
         throw error;
     }
 
+    if (!isAdmin(user) && student.status !== 'activo') {
+        const error = new Error('Alumno inactivo');
+        error.status = 403;
+        throw error;
+    }
+
     if (isAdmin(user)) {
         return student;
     }
@@ -149,7 +155,13 @@ async function listStudents(userId) {
         whereAsignacion.tutor_id = user.id;
     }
 
+    const whereStudent = {};
+    if (isProfesor(user)) {
+        whereStudent.status = 'activo';
+    }
+
     const students = await Student.findAll({
+        where: whereStudent,
         include: [{
             model: StudentTutor,
             as: 'asignaciones',
@@ -294,6 +306,20 @@ async function updateStudent(id, data, userId) {
                 updates[field] = data[field];
             }
         }
+    }
+
+    if (data.status !== undefined) {
+        if (!isAdmin(user)) {
+            const error = new Error('Solo un administrador puede cambiar el estado del alumno');
+            error.status = 403;
+            throw error;
+        }
+        if (!['activo', 'inactivo'].includes(data.status)) {
+            const error = new Error('Estado no válido');
+            error.status = 400;
+            throw error;
+        }
+        updates.status = data.status;
     }
 
     if (Object.keys(updates).length === 0) {

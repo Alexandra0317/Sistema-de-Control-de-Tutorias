@@ -15,6 +15,7 @@ export interface Estudiante {
   semestres: number
   carrera: string
   grupo: string
+  status: 'activo' | 'inactivo'
   tutor_actual: TutorBrief | null
   asignacion_activa_id: number | null
   historial_tutores?: AsignacionTutor[]
@@ -56,6 +57,7 @@ export interface UpdateEstudiantePayload {
   semestres?: number
   carrera?: string
   grupo?: string
+  status?: 'activo' | 'inactivo'
 }
 
 export interface EstudiantesListResponse {

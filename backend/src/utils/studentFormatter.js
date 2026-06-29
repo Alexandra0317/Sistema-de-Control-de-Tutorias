@@ -56,6 +56,7 @@ function formatStudentResponse(student, options = {}) {
         semestres: plain.semestres,
         carrera: plain.carrera,
         grupo: plain.grupo,
+        status: plain.status,
         tutor_actual: asignacionActiva ? formatTutorBrief(asignacionActiva.tutor) : null,
         asignacion_activa_id: asignacionActiva?.id ?? null,
     };

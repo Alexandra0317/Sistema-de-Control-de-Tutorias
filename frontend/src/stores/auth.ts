@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as authService from '@/services/auth'
+import { ApiError } from '@/services/api'
 import type { Usuario } from '@/types/auth'
 
 const TOKEN_KEY = 'tutorias_token'
@@ -58,7 +59,10 @@ export const useAuthStore = defineStore('auth', () => {
       const currentUser = await authService.fetchCurrentUser(token.value)
       user.value = currentUser
       return true
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        error.value = err.message
+      }
       clearSession()
       return false
     } finally {
