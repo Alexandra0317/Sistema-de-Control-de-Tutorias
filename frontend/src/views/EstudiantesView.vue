@@ -310,6 +310,13 @@ async function guardarObservacion() {
       fechaObservacion.value,
     )
     observaciones.value = [observacion, ...observaciones.value]
+
+    const histRes = await estudiantesService.fetchHistorialTutores(
+      auth.token,
+      selectedStudent.value.id,
+    )
+    historial.value = histRes.historial
+
     nuevaObservacion.value = ''
     success.value = 'Observación registrada'
     setTimeout(() => { success.value = null }, 3000)

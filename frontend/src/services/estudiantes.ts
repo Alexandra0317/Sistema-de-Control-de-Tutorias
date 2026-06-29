@@ -18,6 +18,10 @@ export function fetchEstudiante(token: string, id: number) {
   return apiRequest<EstudianteResponse>(`/estudiantes/${id}`, { token })
 }
 
+export function fetchEstudiantePorMatricula(token: string, matricula: string) {
+  return apiRequest<EstudianteResponse>(`/estudiantes/matricula/${encodeURIComponent(matricula)}`, { token })
+}
+
 export function fetchTutores(token: string) {
   return apiRequest<TutoresListResponse>('/estudiantes/tutores', { token })
 }

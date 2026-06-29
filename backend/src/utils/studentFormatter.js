@@ -20,7 +20,10 @@ function formatAsignacion(asignacion) {
         activo: plain.activo,
         tutor: formatTutorBrief(plain.tutor),
         observaciones: plain.observaciones
-            ? plain.observaciones.map(formatObservation)
+            ? plain.observaciones.map((obs) => formatObservation({
+                ...obs,
+                asignacion: { tutor: plain.tutor },
+            }))
             : undefined,
     };
 }

@@ -22,6 +22,17 @@ async function list(req, res) {
     }
 }
 
+async function getByMatricula(req, res) {
+    try {
+        const student = await studentService.getStudentByMatricula(req.params.matricula, req.userId);
+        return res.json({ student });
+    } catch (error) {
+        return res.status(error.status || 500).json({
+            message: error.message || 'Error al buscar alumno',
+        });
+    }
+}
+
 async function getById(req, res) {
     try {
         const student = await studentService.getStudentById(req.params.id, req.userId);
@@ -97,6 +108,7 @@ async function tutorHistory(req, res) {
 module.exports = {
     listTutors,
     list,
+    getByMatricula,
     getById,
     create,
     update,

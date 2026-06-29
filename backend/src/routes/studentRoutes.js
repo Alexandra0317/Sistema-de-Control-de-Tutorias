@@ -9,6 +9,7 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/tutores', authorize('estudiantes', 'leer'), studentController.listTutors);
+router.get('/matricula/:matricula', authorize('tutorias', 'leer'), studentController.getByMatricula);
 router.get('/', authorize('estudiantes', 'leer'), studentController.list);
 router.get('/:id', authorize('estudiantes', 'leer'), studentController.getById);
 router.post('/', authorize('estudiantes', 'crear'), studentController.create);

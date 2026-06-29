@@ -163,6 +163,30 @@ async function listStudents(userId) {
     return students.map((s) => formatStudentResponse(s));
 }
 
+async function getStudentByMatricula(matricula, userId) {
+    if (!matricula || typeof matricula !== 'string' || matricula.length !== 10) {
+        const error = new Error('La matrícula debe tener exactamente 10 caracteres');
+        error.status = 400;
+        throw error;
+    }
+
+    const student = await Student.findOne({
+        where: { matricula },
+        include: studentInclude,
+    });
+
+    if (!student) {
+        const error = new Error('No se encontró un alumno con esa matrícula');
+        error.status = 404;
+        throw error;
+    }
+
+    const user = await getRequestingUser(userId);
+    await assertAccessToStudent(student.id, user);
+
+    return formatStudentResponse(student);
+}
+
 async function getStudentById(id, userId) {
     const user = await getRequestingUser(userId);
     await assertAccessToStudent(id, user);
@@ -387,6 +411,7 @@ async function getTutorHistory(studentId, userId) {
 module.exports = {
     listProfessors,
     listStudents,
+    getStudentByMatricula,
     getStudentById,
     createStudent,
     updateStudent,

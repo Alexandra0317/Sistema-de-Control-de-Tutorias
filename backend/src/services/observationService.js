@@ -3,7 +3,8 @@ const { formatObservation } = require('../utils/studentFormatter');
 const studentService = require('./studentService');
 
 async function listObservations(studentId, userId) {
-    await studentService.assertAccessToStudent(studentId, userId);
+    const user = await studentService.getRequestingUser(userId);
+    await studentService.assertAccessToStudent(studentId, user);
 
     const asignaciones = await StudentTutor.findAll({
         where: { student_id: studentId },
