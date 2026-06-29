@@ -81,3 +81,16 @@ export interface ObservacionResponse {
 export interface HistorialTutoresResponse {
   historial: AsignacionTutor[]
 }
+
+export interface CargaMasivaError {
+  fila: number
+  matricula: string | null
+  mensaje: string
+}
+
+export interface CargaMasivaResponse {
+  total: number
+  creados: number
+  errores: CargaMasivaError[]
+  students: Estudiante[]
+}

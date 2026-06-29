@@ -1,4 +1,5 @@
 const studentService = require('../services/studentService');
+const studentBulkService = require('../services/studentBulkService');
 
 async function listTutors(req, res) {
     try {
@@ -105,6 +106,43 @@ async function tutorHistory(req, res) {
     }
 }
 
+async function downloadTemplate(req, res) {
+    try {
+        const buffer = studentBulkService.generateTemplateBuffer();
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="plantilla_alumnos.xlsx"');
+        return res.send(buffer);
+    } catch (error) {
+        return res.status(error.status || 500).json({
+            message: error.message || 'Error al generar plantilla',
+        });
+    }
+}
+
+async function bulkImport(req, res) {
+    try {
+        if (!req.file?.buffer) {
+            return res.status(400).json({ message: 'Debes enviar un archivo Excel' });
+        }
+
+        const defaultTutorId = req.body.tutor_id
+            ? Number.parseInt(req.body.tutor_id, 10)
+            : undefined;
+
+        const result = await studentBulkService.bulkCreateStudents(
+            req.file.buffer,
+            req.userId,
+            Number.isNaN(defaultTutorId) ? undefined : defaultTutorId,
+        );
+
+        return res.status(200).json(result);
+    } catch (error) {
+        return res.status(error.status || 500).json({
+            message: error.message || 'Error en la carga masiva',
+        });
+    }
+}
+
 module.exports = {
     listTutors,
     list,
@@ -115,4 +153,6 @@ module.exports = {
     remove,
     changeTutor,
     tutorHistory,
+    downloadTemplate,
+    bulkImport,
 };

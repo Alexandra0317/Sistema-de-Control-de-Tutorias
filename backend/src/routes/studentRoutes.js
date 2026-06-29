@@ -3,15 +3,24 @@ const studentController = require('../controllers/studentController');
 const observationController = require('../controllers/observationController');
 const { authenticate } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/permissionMiddleware');
+const { excelUpload, handleUploadError } = require('../middleware/uploadMiddleware');
 
 const router = express.Router();
 
 router.use(authenticate);
 
 router.get('/tutores', authorize('estudiantes', 'leer'), studentController.listTutors);
+router.get('/plantilla-carga', authorize('estudiantes', 'crear'), studentController.downloadTemplate);
 router.get('/matricula/:matricula', authorize('tutorias', 'leer'), studentController.getByMatricula);
 router.get('/', authorize('estudiantes', 'leer'), studentController.list);
 router.get('/:id', authorize('estudiantes', 'leer'), studentController.getById);
+router.post(
+    '/carga-masiva',
+    authorize('estudiantes', 'crear'),
+    excelUpload.single('archivo'),
+    handleUploadError,
+    studentController.bulkImport,
+);
 router.post('/', authorize('estudiantes', 'crear'), studentController.create);
 router.patch('/:id/tutor', authorize('estudiantes', 'actualizar'), studentController.changeTutor);
 router.patch('/:id', authorize('estudiantes', 'actualizar'), studentController.update);

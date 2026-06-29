@@ -5,6 +5,7 @@ import { tienePermiso } from '@/config/menu'
 import * as estudiantesService from '@/services/estudiantes'
 import type {
   AsignacionTutor,
+  CargaMasivaResponse,
   CreateEstudiantePayload,
   Estudiante,
   Observacion,
@@ -20,6 +21,7 @@ const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 
 const showCreateModal = ref(false)
+const showBulkModal = ref(false)
 const showEditModal = ref(false)
 const showDetailModal = ref(false)
 const showChangeTutorModal = ref(false)
@@ -59,6 +61,9 @@ const formEditar = ref({
 const nuevoTutorId = ref(0)
 const nuevaObservacion = ref('')
 const fechaObservacion = ref(new Date().toISOString().slice(0, 10))
+const archivoExcel = ref<File | null>(null)
+const tutorCargaMasiva = ref<number | undefined>(undefined)
+const resultadoCarga = ref<CargaMasivaResponse | null>(null)
 
 function nombreCompleto(item: { nombre: string; apellido_paterno: string; apellido_materno?: string | null }) {
   return [item.nombre, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ')
@@ -113,6 +118,83 @@ function abrirCrear() {
 function cerrarCrear() {
   showCreateModal.value = false
   formError.value = null
+}
+
+function abrirCargaMasiva() {
+  archivoExcel.value = null
+  tutorCargaMasiva.value = tutores.value[0]?.id
+  resultadoCarga.value = null
+  formError.value = null
+  showBulkModal.value = true
+}
+
+function cerrarCargaMasiva() {
+  showBulkModal.value = false
+  archivoExcel.value = null
+  resultadoCarga.value = null
+  formError.value = null
+}
+
+function onArchivoSeleccionado(event: Event) {
+  const input = event.target as HTMLInputElement
+  archivoExcel.value = input.files?.[0] ?? null
+  resultadoCarga.value = null
+  formError.value = null
+}
+
+async function descargarPlantilla() {
+  if (!auth.token) return
+
+  try {
+    await estudiantesService.downloadPlantillaCarga(auth.token)
+  } catch (err) {
+    formError.value = err instanceof Error ? err.message : 'Error al descargar plantilla'
+  }
+}
+
+async function procesarCargaMasiva() {
+  if (!auth.token) return
+
+  formError.value = null
+  resultadoCarga.value = null
+
+  if (!archivoExcel.value) {
+    formError.value = 'Selecciona un archivo Excel (.xlsx)'
+    return
+  }
+
+  if (esAdmin.value && !tutorCargaMasiva.value) {
+    formError.value = 'Selecciona un tutor por defecto o incluye correo_tutor en cada fila'
+    return
+  }
+
+  submitting.value = true
+
+  try {
+    const result = await estudiantesService.cargaMasivaEstudiantes(
+      auth.token,
+      archivoExcel.value,
+      esAdmin.value ? tutorCargaMasiva.value : undefined,
+    )
+
+    resultadoCarga.value = result
+
+    if (result.creados > 0) {
+      estudiantes.value = [...estudiantes.value, ...result.students].sort((a, b) =>
+        nombreCompleto(a).localeCompare(nombreCompleto(b)),
+      )
+      success.value = `Carga completada: ${result.creados} de ${result.total} alumnos registrados`
+      setTimeout(() => { success.value = null }, 5000)
+    }
+
+    if (result.creados === 0) {
+      formError.value = 'No se pudo registrar ningún alumno. Revisa los errores.'
+    }
+  } catch (err) {
+    formError.value = err instanceof Error ? err.message : 'Error en la carga masiva'
+  } finally {
+    submitting.value = false
+  }
 }
 
 function abrirEditar(estudiante: Estudiante) {
@@ -343,14 +425,22 @@ onMounted(cargarDatos)
         <h1>Estudiantes</h1>
         <p class="subtitle">Gestión de alumnos y tutorías asignadas</p>
       </div>
-      <button
-        v-if="puedeCrear"
-        type="button"
-        class="btn-primary"
-        @click="abrirCrear"
-      >
-        + Nuevo alumno
-      </button>
+      <div v-if="puedeCrear" class="header-actions">
+        <button
+          type="button"
+          class="btn-secondary"
+          @click="abrirCargaMasiva"
+        >
+          Carga masiva
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          @click="abrirCrear"
+        >
+          + Nuevo alumno
+        </button>
+      </div>
     </header>
 
     <p v-if="success" class="alert success">{{ success }}</p>
@@ -499,6 +589,88 @@ onMounted(cargarDatos)
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Modal: carga masiva -->
+    <div v-if="showBulkModal" class="modal-overlay" @click.self="cerrarCargaMasiva">
+      <div class="modal modal-lg">
+        <header class="modal-header">
+          <h2>Carga masiva de alumnos</h2>
+          <button type="button" class="btn-close" @click="cerrarCargaMasiva">×</button>
+        </header>
+
+        <div class="modal-body">
+          <p class="modal-subtitle">
+            Sube un archivo Excel (.xlsx) con los datos de los alumnos.
+            Puedes descargar la plantilla con el formato correcto.
+          </p>
+
+          <div class="bulk-actions">
+            <button type="button" class="btn-link" @click="descargarPlantilla">
+              Descargar plantilla Excel
+            </button>
+          </div>
+
+          <div class="field">
+            <label for="archivo-excel">Archivo Excel *</label>
+            <input
+              id="archivo-excel"
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              @change="onArchivoSeleccionado"
+            />
+            <p v-if="archivoExcel" class="hint">{{ archivoExcel.name }}</p>
+          </div>
+
+          <div v-if="esAdmin" class="field">
+            <label for="tutor-carga">Tutor por defecto</label>
+            <select id="tutor-carga" v-model.number="tutorCargaMasiva">
+              <option v-for="tutor in tutores" :key="tutor.id" :value="tutor.id">
+                {{ nombreCompleto(tutor) }} — {{ tutor.correo }}
+              </option>
+            </select>
+            <p class="hint">
+              Se usará si la fila no incluye <code>correo_tutor</code> o <code>tutor_id</code>.
+            </p>
+          </div>
+
+          <p v-else class="hint">
+            Todos los alumnos del archivo quedarán asignados a ti como tutor.
+          </p>
+
+          <div v-if="resultadoCarga" class="bulk-result">
+            <p class="bulk-summary">
+              <strong>{{ resultadoCarga.creados }}</strong> de
+              <strong>{{ resultadoCarga.total }}</strong> alumnos registrados.
+            </p>
+
+            <div v-if="resultadoCarga.errores.length > 0" class="bulk-errors">
+              <h3>Errores ({{ resultadoCarga.errores.length }})</h3>
+              <ul>
+                <li v-for="(err, idx) in resultadoCarga.errores" :key="idx">
+                  Fila {{ err.fila }}
+                  <span v-if="err.matricula">({{ err.matricula }})</span>:
+                  {{ err.mensaje }}
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <p v-if="formError" class="alert error">{{ formError }}</p>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" @click="cerrarCargaMasiva">Cerrar</button>
+            <button
+              type="button"
+              class="btn-primary"
+              :disabled="submitting || !archivoExcel"
+              @click="procesarCargaMasiva"
+            >
+              {{ submitting ? 'Procesando...' : 'Importar alumnos' }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -700,6 +872,47 @@ onMounted(cargarDatos)
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.bulk-actions {
+  margin-bottom: 1rem;
+}
+
+.bulk-result {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.bulk-summary {
+  margin: 0 0 0.75rem;
+  color: #334155;
+}
+
+.bulk-errors h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: #b91c1c;
+}
+
+.bulk-errors ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  color: #7f1d1d;
+}
+
+.bulk-errors li {
+  margin-bottom: 0.35rem;
 }
 
 h1 {

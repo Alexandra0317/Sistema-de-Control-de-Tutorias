@@ -1,5 +1,6 @@
-import { apiRequest } from '@/services/api'
+import { apiDownload, apiRequest, apiUpload } from '@/services/api'
 import type {
+  CargaMasivaResponse,
   CreateEstudiantePayload,
   EstudianteResponse,
   EstudiantesListResponse,
@@ -71,4 +72,17 @@ export function createObservacion(token: string, id: number, contenido: string, 
     token,
     body: { contenido, fecha },
   })
+}
+
+export function downloadPlantillaCarga(token: string) {
+  return apiDownload('/estudiantes/plantilla-carga', token, 'plantilla_alumnos.xlsx')
+}
+
+export function cargaMasivaEstudiantes(token: string, archivo: File, tutorId?: number) {
+  const formData = new FormData()
+  formData.append('archivo', archivo)
+  if (tutorId) {
+    formData.append('tutor_id', String(tutorId))
+  }
+  return apiUpload<CargaMasivaResponse>('/estudiantes/carga-masiva', formData, token)
 }
