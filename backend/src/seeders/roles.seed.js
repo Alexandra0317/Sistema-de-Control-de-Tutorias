@@ -9,6 +9,8 @@ const ROLES_INICIALES = [
             usuarios: ['crear', 'leer', 'actualizar', 'eliminar'],
             roles: ['leer'],
             tutorias: ['crear', 'leer', 'actualizar', 'eliminar'],
+            estudiantes: ['crear', 'leer', 'actualizar', 'eliminar'],
+            observaciones: ['crear', 'leer'],
             reportes: ['leer', 'exportar'],
         },
     },
@@ -18,7 +20,8 @@ const ROLES_INICIALES = [
         status: 'activo',
         permisos: {
             tutorias: ['crear', 'leer', 'actualizar'],
-            estudiantes: ['leer'],
+            estudiantes: ['crear', 'leer', 'actualizar'],
+            observaciones: ['crear', 'leer'],
             reportes: ['leer'],
         },
     },
@@ -32,6 +35,13 @@ async function seedRoles() {
             where: { nombre: datosRol.nombre },
             defaults: datosRol,
         });
+
+        if (!created) {
+            await rol.update({
+                descripcion: datosRol.descripcion,
+                permisos: datosRol.permisos,
+            });
+        }
 
         resultados.push({ nombre: rol.nombre, created });
     }
