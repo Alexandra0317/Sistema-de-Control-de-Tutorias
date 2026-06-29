@@ -1,32 +1,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User, Role } = require('../models');
+const { formatUserResponse } = require('../utils/userFormatter');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-cambiar-en-produccion';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
-
-function formatUserResponse(user) {
-    const plain = user.get({ plain: true });
-    const { rol, ...usuario } = plain;
-
-    return {
-        id: usuario.id,
-        correo: usuario.correo,
-        nombre: usuario.nombre,
-        apellido_paterno: usuario.apellido_paterno,
-        apellido_materno: usuario.apellido_materno,
-        telefono: usuario.telefono,
-        status: usuario.status,
-        rol: rol
-            ? {
-                  id: rol.id,
-                  nombre: rol.nombre,
-                  descripcion: rol.descripcion,
-                  permisos: rol.permisos,
-              }
-            : null,
-    };
-}
 
 async function login(correo, password) {
     const user = await User.scope('withPassword').findOne({
